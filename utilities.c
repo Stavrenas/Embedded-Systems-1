@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
-#include <math.h>
 
 void writeToCSV(double *array, int producers, int consumers, int elements)
 {
