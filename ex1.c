@@ -11,6 +11,8 @@
 #define P 1
 #define Q 1
 
+int elementsLeft = LOOP * P;
+
 struct timeval tic()
 {
     struct timeval tv;
@@ -42,11 +44,6 @@ typedef struct
     void *arg;
 } workFunction;
 
-typedef struct {
-    int functionArguement;
-    struct timeval tv;
-} arguement;
-
 typedef struct
 {
     workFunction *buf[QUEUESIZE];
@@ -55,6 +52,12 @@ typedef struct
     pthread_mutex_t *mut;
     pthread_cond_t *notFull, *notEmpty;
 } queue;
+
+typedef struct
+{
+    int functionArguement;
+    struct timeval tv;
+} arguement;
 
 queue *initializeQueue(void);
 void deleteQueue(queue *q);
@@ -105,25 +108,23 @@ void *producer(void *q)
         array[i] = i;
 
     workFunction *myStructs;
-    arguement * myArguements;
-    myStructs=(workFunction*)malloc(LOOP * sizeof (workFunction));
-    myArguements=(arguement*)malloc(LOOP * sizeof (arguement));
+    arguement *myArguements;
+    myStructs = (workFunction *)malloc(LOOP * sizeof(workFunction));
+    myArguements = (arguement *)malloc(LOOP * sizeof(arguement));
 
     for (i = 0; i < LOOP; i++)
     {
-        (myArguements+i)->functionArguement=array[i];
-        (myArguements+i)->tv=tic();
-        (myStructs+i)->arg =(myArguements+i);
-        (myStructs+i)->work = doWork;
-        // (myStructs+i)->arg = &array[i];
+        (myArguements + i)->functionArguement = array[i];
+        (myArguements + i)->tv = tic();
+        (myStructs + i)->arg = (myArguements + i);
+        (myStructs + i)->work = doWork;
         pthread_mutex_lock(fifo->mut);
         while (fifo->full)
         {
             printf("Producer: queue FULL.\n");
             pthread_cond_wait(fifo->notFull, fifo->mut);
         }
-        printf("Producer: loop %d\n", i);
-        queueAdd(fifo, (myStructs+i));
+        queueAdd(fifo, (myStructs + i));
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notEmpty);
     }
@@ -146,11 +147,16 @@ void *consumer(void *q)
             printf("Consumer: queue EMPTY.\n");
             pthread_cond_wait(fifo->notEmpty, fifo->mut);
         }
-        printf("Consumer: loop %d\n", i);
         workFunction myStruct;
         queueDelete(fifo, &myStruct);
+        arguement *myArguement;
+        myArguement = myStruct.arg;
+        int functionArg = myArguement->functionArguement;
+        struct timeval start = myArguement->tv;
+        double elapsedTime = toc(start);
         printf("Consumer: ");
-        (*myStruct.work)(myStruct.arg);
+        (*myStruct.work)(&functionArg);
+        printf("Elapsed time for execution: %f sec\n", elapsedTime);
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notFull);
     }
