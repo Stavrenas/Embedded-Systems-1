@@ -7,11 +7,13 @@
 #include <math.h>
 
 #define QUEUESIZE 10
-#define LOOP 20
-#define P 1
-#define Q 1
+#define ELEMENTS 200
+#define P 5
+#define Q 5
 
-int elementsLeft = LOOP * P;
+int elementsLeft = ELEMENTS;
+int elementsAdded = 0;
+double times[ELEMENTS];
 
 struct timeval tic()
 {
@@ -29,11 +31,6 @@ double toc(struct timeval begin)
     stime = stime / 1000;
     return (stime);
 }
-
-// struct timeval tStart;
-// tStart = tic();
-// function
-// time=toc(tStart);
 
 void *producer(void *args);
 void *consumer(void *args);
@@ -55,9 +52,9 @@ typedef struct
 
 typedef struct
 {
-    int functionArguement;
+    int functionArgument;
     struct timeval tv;
-} arguement;
+} argument;
 
 queue *initializeQueue(void);
 void deleteQueue(queue *q);
@@ -66,11 +63,11 @@ void queueDelete(queue *q, workFunction *out);
 
 void *doWork(void *arg)
 {
-    int arguement = *((int *)arg);
+    int argument = *((int *)arg);
     double result = 0;
     for (int i = 0; i < 1000; i++)
-        result += arguement * arguement + cos(arguement);
-    printf("Result is %f with arguement %d\n", result, arguement);
+        result += argument * argument + cos(argument);
+    printf("Result is %f with arguement %d\n", result, argument);
 }
 
 int main()
@@ -94,6 +91,8 @@ int main()
     for (int i = 0; i < Q; i++)
         pthread_join(pro[i], NULL);
     deleteQueue(fifo);
+    for(int i=0; i<ELEMENTS; i++)
+    printf("Time %d is %f\n",i,times[i]);
 
     return 0;
 }
@@ -103,25 +102,27 @@ void *producer(void *q)
     queue *fifo;
     int i;
     fifo = (queue *)q;
-    int *array = (int *)malloc(LOOP * sizeof(int));
-    for (i = 0; i < LOOP; i++)
+    int *array = (int *)malloc(ELEMENTS * sizeof(int));
+
+    for (i = 0; i < ELEMENTS; i++)
         array[i] = i;
 
     workFunction *myStructs;
-    arguement *myArguements;
-    myStructs = (workFunction *)malloc(LOOP * sizeof(workFunction));
-    myArguements = (arguement *)malloc(LOOP * sizeof(arguement));
+    argument *myArguments;
+    myStructs = (workFunction *)malloc(ELEMENTS * sizeof(workFunction));
+    myArguments = (argument *)malloc(ELEMENTS * sizeof(argument));
 
-    for (i = 0; i < LOOP; i++)
+    for (i = 1; elementsAdded < ELEMENTS ; i++)
     {
-        (myArguements + i)->functionArguement = array[i];
-        (myArguements + i)->tv = tic();
-        (myStructs + i)->arg = (myArguements + i);
+        (myArguments + i)->functionArgument = array[elementsAdded];
+        (myArguments + i)->tv = tic();
+        (myStructs + i)->arg = (myArguments + i);
         (myStructs + i)->work = doWork;
         pthread_mutex_lock(fifo->mut);
+        elementsAdded++;
         while (fifo->full)
         {
-            printf("Producer: queue FULL.\n");
+            // printf("Producer: queue FULL.\n");
             pthread_cond_wait(fifo->notFull, fifo->mut);
         }
         queueAdd(fifo, (myStructs + i));
@@ -136,29 +137,37 @@ void *consumer(void *q)
     queue *fifo;
     int i;
     fifo = (queue *)q;
-
-    for (i = 0; i < LOOP; i++)
+    while (elementsLeft > Q-1)
     {
-
         pthread_mutex_lock(fifo->mut);
 
         while (fifo->empty)
         {
-            printf("Consumer: queue EMPTY.\n");
+            // printf("Consumer: queue EMPTY.\n");
             pthread_cond_wait(fifo->notEmpty, fifo->mut);
+            if(elementsLeft<0)
+            exit(0);
         }
         workFunction myStruct;
+        argument *myArgument;
+
         queueDelete(fifo, &myStruct);
-        arguement *myArguement;
-        myArguement = myStruct.arg;
-        int functionArg = myArguement->functionArguement;
-        struct timeval start = myArguement->tv;
+
+        myArgument = myStruct.arg;
+        int functionArg = myArgument->functionArgument;
+        struct timeval start = myArgument->tv;
         double elapsedTime = toc(start);
+
         printf("Consumer: ");
         (*myStruct.work)(&functionArg);
-        printf("Elapsed time for execution: %f sec\n", elapsedTime);
+        //printf("Elapsed time for execution: %f sec\n", elapsedTime);
+
+        elementsLeft--;
+        times[elementsLeft]=elapsedTime;
+
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notFull);
+        //printf("Elements left are: %d\n", elementsLeft);
     }
 
     return (NULL);
