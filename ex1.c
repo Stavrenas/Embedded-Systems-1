@@ -15,23 +15,6 @@ int elementsLeft = ELEMENTS;
 int elementsAdded = 0;
 double times[ELEMENTS];
 
-struct timeval tic()
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv;
-}
-
-double toc(struct timeval begin)
-{
-    struct timeval end;
-    gettimeofday(&end, NULL);
-    double stime = ((double)(end.tv_sec - begin.tv_sec) * 1000) +
-                   ((double)(end.tv_usec - begin.tv_usec) / 1000);
-    stime = stime / 1000;
-    return (stime);
-}
-
 void *producer(void *args);
 void *consumer(void *args);
 
@@ -57,8 +40,11 @@ typedef struct
 } argument;
 
 queue *initializeQueue(void);
+
 void deleteQueue(queue *q);
+
 void queueAdd(queue *q, workFunction *in);
+
 void queueDelete(queue *q, workFunction *out);
 
 void *doWork(void *arg)
@@ -91,8 +77,9 @@ int main()
     for (int i = 0; i < Q; i++)
         pthread_join(pro[i], NULL);
     deleteQueue(fifo);
-    for(int i=0; i<ELEMENTS; i++)
-    printf("Time %d is %f\n",i,times[i]);
+    for (int i = 0; i < ELEMENTS; i++)
+        printf("Time %d is %f\n", i, times[i]);
+    writeToCSV(times, P, Q, ELEMENTS);
 
     return 0;
 }
@@ -112,7 +99,7 @@ void *producer(void *q)
     myStructs = (workFunction *)malloc(ELEMENTS * sizeof(workFunction));
     myArguments = (argument *)malloc(ELEMENTS * sizeof(argument));
 
-    for (i = 1; elementsAdded < ELEMENTS ; i++)
+    for (i = 1; elementsAdded < ELEMENTS; i++)
     {
         (myArguments + i)->functionArgument = array[elementsAdded];
         (myArguments + i)->tv = tic();
@@ -137,7 +124,7 @@ void *consumer(void *q)
     queue *fifo;
     int i;
     fifo = (queue *)q;
-    while (elementsLeft > Q-1)
+    while (elementsLeft > Q - 1)
     {
         pthread_mutex_lock(fifo->mut);
 
@@ -145,8 +132,8 @@ void *consumer(void *q)
         {
             // printf("Consumer: queue EMPTY.\n");
             pthread_cond_wait(fifo->notEmpty, fifo->mut);
-            if(elementsLeft<0)
-            exit(0);
+            if (elementsLeft < 0)
+                exit(0);
         }
         workFunction myStruct;
         argument *myArgument;
@@ -163,7 +150,7 @@ void *consumer(void *q)
         //printf("Elapsed time for execution: %f sec\n", elapsedTime);
 
         elementsLeft--;
-        times[elementsLeft]=elapsedTime;
+        times[elementsLeft] = elapsedTime;
 
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notFull);
