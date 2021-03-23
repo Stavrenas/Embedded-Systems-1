@@ -14,7 +14,7 @@ void writeToCSV(double *array, int producers, int consumers, int elements)
     filepointer = fopen(filename, "w"); //create a file
     for (int i = 0; i < elements; i++)
     {
-        fprintf(filepointer, "%.6f", array[i]); //write each pixel value
+        fprintf(filepointer, "%.6f", array[i]); //write each time value
         fprintf(filepointer, "\n");
     }
 }
