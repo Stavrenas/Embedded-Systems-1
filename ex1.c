@@ -134,7 +134,6 @@ void *consumer(void *q)
 {
     queue *fifo;
     int i;
-
     fifo = (queue *)q;
 
     for (i = 0; i < LOOP; i++)
