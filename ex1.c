@@ -102,11 +102,11 @@ void *producer(void *q)
 
     for (i = 1; elementsAdded < ELEMENTS; i++)
     {
+        pthread_mutex_lock(fifo->mut);
         (myArguments + i)->functionArgument = array[elementsAdded];
         (myArguments + i)->tv = tic();
         (myStructs + i)->arg = (myArguments + i);
         (myStructs + i)->work = doWork;
-        pthread_mutex_lock(fifo->mut);
         elementsAdded++;
         while (fifo->full)
         {
