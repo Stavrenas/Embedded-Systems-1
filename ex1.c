@@ -151,7 +151,7 @@ void *consumer(void *q)
         //printf("Elapsed time for execution: %f sec\n", elapsedTime);
 
         elementsLeft--;
-        times[elementsLeft] = elapsedTime;
+        times[functionArgument] = elapsedTime;
 
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notFull);
