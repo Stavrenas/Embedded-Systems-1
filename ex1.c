@@ -8,9 +8,9 @@
 #include "utilities.h"
 
 #define QUEUESIZE 10
-#define ELEMENTS 200
-#define P 5
-#define Q 5
+#define ELEMENTS 2000
+#define P 1
+#define Q 1
 
 int elementsLeft = ELEMENTS;
 int elementsAdded = 0;
@@ -52,7 +52,7 @@ void *doWork(void *arg)
 {
     int argument = *((int *)arg);
     double result = 0;
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 10000; i++)
         result += argument * argument + cos(argument);
     printf("Result is %f with arguement %d\n", result, argument);
 }
