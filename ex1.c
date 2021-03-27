@@ -6,11 +6,15 @@
 #include <sys/time.h>
 #include <math.h>
 #include "utilities.h"
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 
+#define _GNU_SOURCE
 #define QUEUESIZE 10
 #define ELEMENTS 20
-#define P 10
-#define Q 10
+#define P 1
+#define Q 4
 
 int elementsLeft = ELEMENTS;
 int elementsAdded = 0;
@@ -102,7 +106,7 @@ void *producer(void *q)
     myStructs = (workFunction *)malloc(ELEMENTS * sizeof(workFunction));
     myArguments = (argument *)malloc(ELEMENTS * sizeof(argument));
 
-    for (i = 1; elementsAdded < ELEMENTS; i++)
+    for (i = 1; elementsAdded <= ELEMENTS; i++)
     {
         pthread_mutex_lock(fifo->mut);
         (myArguments + i)->functionArgument = array[elementsAdded];
@@ -125,53 +129,57 @@ void *producer(void *q)
 void *consumer(void *q)
 {
     queue *fifo;
-    int i;
     fifo = (queue *)q;
-    while (elementsLeft > 0)
-    {
+    pid_t tid;
+    tid = syscall(SYS_gettid);
 
-        pthread_mutex_lock(fifo->mut);
-        printf("Entered while (%d)\n", elementsLeft);
-        while (fifo->empty && elementsLeft > 0)
-        {
-            printf("Consumer: queue EMPTY.(%d)\n", elementsLeft);
-            if (elementsLeft <= 0)
-            {
-                printf(" returning");
-                return (NULL);
-            }
-            else
-            {
-                printf(" waiting\n");
-                pthread_cond_wait(fifo->notEmpty, fifo->mut);
-            }
-        }
-        if (elementsLeft <= 0){
-            printf(" returned\n");
-            return (NULL);
-        }
-            
-        elementsLeft--;
+    while (elementsLeft >0)
+    {
         workFunction myStruct;
         argument *myArgument;
 
+        pthread_mutex_lock(fifo->mut);
+        
+        while (fifo->empty)
+        {
+            printf("Consumer: queue EMPTY.(%d)\n", elementsLeft);
+            printf(" waiting %d(%d)\n",tid,elementsLeft);
+            pthread_cond_wait(fifo->notEmpty, fifo->mut);
+            if(elementsLeft==0){
+                fifo->empty=0;
+                printf("**finished %d(%d)\n",tid,elementsLeft);
+                pthread_cond_signal(fifo->notEmpty);
+                return(NULL);
+            }
+        }
+
         queueDelete(fifo, &myStruct);
+        elementsLeft--;
+        pthread_cond_signal(fifo->notEmpty);
+        if(elementsLeft==0){
+            fifo->empty=0;
+            printf("**finished %d(%d)\n",tid,elementsLeft);
+            return(NULL);
+        }
+         pthread_mutex_unlock(fifo->mut);
+        pthread_cond_signal(fifo->notFull);
+
 
         myArgument = myStruct.arg;
         int functionArg = myArgument->functionArgument;
         struct timeval start = myArgument->tv;
         double elapsedTime = toc(start);
 
-        printf("Consumer(%d): ", elementsLeft);
-        (*myStruct.work)(&functionArg);
+        printf("Consumed %d\n",tid);
+        //printf("Consumer(%d): ", elementsLeft);
+        //(*myStruct.work)(&functionArg);
         //printf("Elapsed time for execution: %f sec\n", elapsedTime);
 
         times[functionArg] = elapsedTime;
 
-        pthread_mutex_unlock(fifo->mut);
-        pthread_cond_signal(fifo->notFull);
     }
 
+    printf("**finished %d(%d)\n",tid,elementsLeft);
     return (NULL);
 }
 
