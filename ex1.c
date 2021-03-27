@@ -13,8 +13,8 @@
 #define _GNU_SOURCE
 #define QUEUESIZE 10
 #define ELEMENTS 2000
-#define P 32
-#define Q 16
+#define P 16
+#define Q 32
 
 int elementsLeft = ELEMENTS;
 int elementsAdded = 0;
@@ -125,7 +125,6 @@ void *producer(void *q)
             printf("Producer: queue FULL.\n");
             pthread_cond_wait(fifo->notFull, fifo->mut);
         }
-
         queueAdd(fifo, (myStructs + i));
 
         pthread_mutex_unlock(fifo->mut);
@@ -164,7 +163,6 @@ void *consumer(void *q)
         elementsLeft--;
         queueDelete(fifo, &myStruct);
         pthread_cond_broadcast(fifo->notEmpty);
-        
 
         myArgument = myStruct.arg;
         int functionArg = myArgument->functionArgument;
@@ -174,8 +172,8 @@ void *consumer(void *q)
         printf("Consumer: ");
         (*myStruct.work)(&functionArg);
         printf("Elapsed time(%d)(%d) for execution: %f sec\n", functionArg, elementsLeft, elapsedTime);
-        if(functionArg<ELEMENTS)
-        times[functionArg] = elapsedTime;
+        if (functionArg < ELEMENTS && functionArg >= 0)
+            times[functionArg] = elapsedTime;
 
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notFull);
