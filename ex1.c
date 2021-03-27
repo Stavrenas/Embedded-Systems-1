@@ -12,9 +12,9 @@
 
 #define _GNU_SOURCE
 #define QUEUESIZE 10
-#define ELEMENTS 200
-#define P 20
-#define Q 1
+#define ELEMENTS 2000
+#define P 32
+#define Q 16
 
 int elementsLeft = ELEMENTS;
 int elementsAdded = 0;
@@ -174,6 +174,7 @@ void *consumer(void *q)
         printf("Consumer: ");
         (*myStruct.work)(&functionArg);
         printf("Elapsed time(%d)(%d) for execution: %f sec\n", functionArg, elementsLeft, elapsedTime);
+        if(functionArg<ELEMENTS)
         times[functionArg] = elapsedTime;
 
         pthread_mutex_unlock(fifo->mut);
