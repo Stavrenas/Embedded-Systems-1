@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -lpthread -lm
+CFLAGS = -lpthread -lm -g
 
 default: ex1
 
