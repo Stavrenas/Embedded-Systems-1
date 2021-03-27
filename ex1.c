@@ -104,6 +104,8 @@ void *producer(void *q)
     for (i = 0; i < ELEMENTS; i++)
         array[i] = i;
 
+    //initialize structs//
+
     workFunction *myStructs;
     argument *myArguments;
     myStructs = (workFunction *)malloc(ELEMENTS * sizeof(workFunction));
@@ -130,9 +132,9 @@ void *producer(void *q)
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notEmpty);
     }
-
+    //this runs to avoid threads waiting even when there are no elements left to be added// 
     if (elementsAdded == ELEMENTS - 1)
-        pthread_cond_broadcast(fifo->notFull); //this
+        pthread_cond_broadcast(fifo->notFull); 
     return (NULL);
 }
 
@@ -164,14 +166,17 @@ void *consumer(void *q)
         queueDelete(fifo, &myStruct);
         pthread_cond_broadcast(fifo->notEmpty);
 
+        //take informatiom from structs//
         myArgument = myStruct.arg;
         int functionArg = myArgument->functionArgument;
         struct timeval start = myArgument->tv;
-        double elapsedTime = toc(start);
+        double elapsedTime = toc(start); //measure time elapsed//
 
         printf("Consumer: ");
-        (*myStruct.work)(&functionArg);
+        //run the work function//
+        (*myStruct.work)(&functionArg); 
         printf("Elapsed time(%d)(%d) for execution: %f sec\n", functionArg, elementsLeft, elapsedTime);
+        
         if (functionArg < ELEMENTS && functionArg >= 0)
             times[functionArg] = elapsedTime;
 
