@@ -12,9 +12,9 @@
 
 #define _GNU_SOURCE
 #define QUEUESIZE 10
-#define ELEMENTS 20
-#define P 1
-#define Q 4
+#define ELEMENTS 200
+#define P 20
+#define Q 1
 
 int elementsLeft = ELEMENTS;
 int elementsAdded = 0;
@@ -77,27 +77,30 @@ int main()
         pthread_create(&pro[i], NULL, producer, fifo);
     for (int i = 0; i < Q; i++)
         pthread_create(&con[i], NULL, consumer, fifo);
-    for (int i = 0; i < Q; i++)
-        pthread_join(pro[i], NULL);
     for (int i = 0; i < P; i++)
+        pthread_join(pro[i], NULL);
+    for (int i = 0; i < Q; i++)
         pthread_join(con[i], NULL);
+
+    for (int i = 0; i < ELEMENTS; i++)
+        printf("Time %d is %f\n", i, times[i]);
+
+    writeToCSV(times, P, Q, ELEMENTS);
 
     deleteQueue(fifo);
     printf("Deleted queue\n");
-    for (int i = 0; i < ELEMENTS; i++)
-        printf("Time %d is %f\n", i, times[i]);
-    writeToCSV(times, P, Q, ELEMENTS);
 
     return 0;
 }
 
 void *producer(void *q)
 {
+    //initialize variables//
     queue *fifo;
     int i;
     fifo = (queue *)q;
-    int *array = (int *)malloc(ELEMENTS * sizeof(int));
 
+    int *array = (int *)malloc(ELEMENTS * sizeof(int));
     for (i = 0; i < ELEMENTS; i++)
         array[i] = i;
 
@@ -106,11 +109,14 @@ void *producer(void *q)
     myStructs = (workFunction *)malloc(ELEMENTS * sizeof(workFunction));
     myArguments = (argument *)malloc(ELEMENTS * sizeof(argument));
 
-    for (i = 1; elementsAdded <= ELEMENTS; i++)
+    for (i = 0; elementsAdded < ELEMENTS; i++)
     {
+
         pthread_mutex_lock(fifo->mut);
+        //create myArgument to pass the function argument and measure time//
         (myArguments + i)->functionArgument = array[elementsAdded];
         (myArguments + i)->tv = tic();
+        //create myStruct to be consumed//
         (myStructs + i)->arg = (myArguments + i);
         (myStructs + i)->work = doWork;
         elementsAdded++;
@@ -119,10 +125,15 @@ void *producer(void *q)
             printf("Producer: queue FULL.\n");
             pthread_cond_wait(fifo->notFull, fifo->mut);
         }
+
         queueAdd(fifo, (myStructs + i));
+
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notEmpty);
     }
+
+    if (elementsAdded == ELEMENTS - 1)
+        pthread_cond_broadcast(fifo->notFull); //this
     return (NULL);
 }
 
@@ -133,53 +144,47 @@ void *consumer(void *q)
     pid_t tid;
     tid = syscall(SYS_gettid);
 
-    while (elementsLeft >0)
+    while (elementsLeft > 0)
     {
         workFunction myStruct;
         argument *myArgument;
 
         pthread_mutex_lock(fifo->mut);
-        
-        while (fifo->empty)
-        {
-            printf("Consumer: queue EMPTY.(%d)\n", elementsLeft);
-            printf(" waiting %d(%d)\n",tid,elementsLeft);
+
+        while (fifo->empty && elementsLeft > 0)
             pthread_cond_wait(fifo->notEmpty, fifo->mut);
-            if(elementsLeft==0){
-                fifo->empty=0;
-                printf("**finished %d(%d)\n",tid,elementsLeft);
-                pthread_cond_signal(fifo->notEmpty);
-                return(NULL);
-            }
-        }
 
-        queueDelete(fifo, &myStruct);
+        if (elementsLeft == 0)
+        {
+            fifo->empty = 0;
+            pthread_mutex_unlock(fifo->mut);
+            pthread_cond_broadcast(fifo->notEmpty);
+            return (NULL);
+        }
         elementsLeft--;
-        pthread_cond_signal(fifo->notEmpty);
-        if(elementsLeft==0){
-            fifo->empty=0;
-            printf("**finished %d(%d)\n",tid,elementsLeft);
-            return(NULL);
-        }
-         pthread_mutex_unlock(fifo->mut);
-        pthread_cond_signal(fifo->notFull);
-
+        queueDelete(fifo, &myStruct);
+        pthread_cond_broadcast(fifo->notEmpty);
+        
 
         myArgument = myStruct.arg;
         int functionArg = myArgument->functionArgument;
         struct timeval start = myArgument->tv;
         double elapsedTime = toc(start);
 
-        printf("Consumed %d\n",tid);
-        //printf("Consumer(%d): ", elementsLeft);
-        //(*myStruct.work)(&functionArg);
-        //printf("Elapsed time for execution: %f sec\n", elapsedTime);
-
+        printf("Consumer: ");
+        (*myStruct.work)(&functionArg);
+        printf("Elapsed time(%d)(%d) for execution: %f sec\n", functionArg, elementsLeft, elapsedTime);
         times[functionArg] = elapsedTime;
 
+        pthread_mutex_unlock(fifo->mut);
+        pthread_cond_signal(fifo->notFull);
     }
-
-    printf("**finished %d(%d)\n",tid,elementsLeft);
+    if (elementsLeft == 0)
+    {
+        fifo->empty = 0;
+        return (NULL);
+    }
+    fifo->empty = 0;
     return (NULL);
 }
 
